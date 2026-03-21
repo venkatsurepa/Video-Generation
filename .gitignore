@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+coverage/
+htmlcov/
+*.cover
+
+# Node.js
+node_modules/
+.remotion/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.test
+
+# Media files — never committed
+*.wav
+*.mp3
+*.mp4
+*.mkv
+*.avi
+*.mov
+
+# Temp and output
+/tmp/
+/output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
