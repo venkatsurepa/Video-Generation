@@ -6,11 +6,11 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-JobStatus = Literal["pending", "running", "completed", "dead_letter"]
+JobStatus = Literal["pending", "in_progress", "completed", "failed", "dead_letter"]
 
 
 class PipelineJobResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     video_id: uuid.UUID
     stage: str
     status: JobStatus

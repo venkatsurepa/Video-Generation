@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-import orjson
 from pydantic import BaseModel, ConfigDict, Field
 
 VideoStatus = Literal[
@@ -22,18 +21,16 @@ VideoStatus = Literal[
 ]
 
 
-def _orjson_dumps(v: object, *, default: object = None) -> str:  # noqa: ARG001
-    return orjson.dumps(v).decode()
-
-
 class VideoBase(BaseModel):
     model_config = ConfigDict(
         json_encoders={datetime: lambda v: v.isoformat()},
         ser_json_bytes="base64",
     )
 
-    title: str = Field(min_length=1, max_length=500)
-    topic: str = Field(min_length=1, max_length=1000)
+    title: str | None = Field(default=None, max_length=500)
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    topic: dict[str, object] = Field(default_factory=dict)
     channel_id: uuid.UUID
 
 
@@ -49,6 +46,11 @@ class VideoResponse(VideoBase):
     id: uuid.UUID
     status: VideoStatus
     error_message: str | None = None
+    youtube_video_id: str | None = None
+    youtube_privacy_status: str | None = None
+    published_at: datetime | None = None
+    script_word_count: int | None = None
+    video_length_seconds: int | None = None
     created_at: datetime
     updated_at: datetime
 

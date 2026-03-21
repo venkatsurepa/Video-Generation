@@ -21,6 +21,7 @@ async def create_channel(body: ChannelCreate, db: DbDep) -> ChannelResponse:
             {
                 "name": body.name,
                 "youtube_channel_id": body.youtube_channel_id,
+                "handle": body.handle,
                 "description": body.description,
             },
         )

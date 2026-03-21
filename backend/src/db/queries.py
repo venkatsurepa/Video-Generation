@@ -13,8 +13,8 @@ WITH next AS (
     FOR UPDATE SKIP LOCKED
 )
 UPDATE pipeline_jobs
-SET status = 'running',
-    started_at = now(),
+SET status = 'in_progress',
+    visible_at = now() + interval '5 minutes',
     updated_at = now()
 FROM next
 WHERE pipeline_jobs.id = next.id
@@ -50,7 +50,9 @@ RETURNING *;
 """
 
 GET_VIDEO_STATUS: str = """
-SELECT id, channel_id, title, topic, status, error_message,
+SELECT id, channel_id, title, description, tags, topic, status, error_message,
+       youtube_video_id, youtube_privacy_status, published_at,
+       script_word_count, video_length_seconds,
        created_at, updated_at
 FROM videos
 WHERE id = %(video_id)s;
@@ -58,8 +60,7 @@ WHERE id = %(video_id)s;
 
 UPDATE_VIDEO_STATUS: str = """
 UPDATE videos
-SET status = %(status)s,
-    updated_at = now()
+SET status = %(status)s
 WHERE id = %(video_id)s
 RETURNING *;
 """
@@ -75,13 +76,15 @@ VALUES
 # --- Video CRUD ---
 
 INSERT_VIDEO: str = """
-INSERT INTO videos (channel_id, title, topic, status)
-VALUES (%(channel_id)s, %(title)s, %(topic)s, 'pending')
+INSERT INTO videos (channel_id, title, description, tags, topic, status)
+VALUES (%(channel_id)s, %(title)s, %(description)s, %(tags)s, %(topic)s, 'pending')
 RETURNING *;
 """
 
 LIST_VIDEOS: str = """
-SELECT id, channel_id, title, topic, status, error_message,
+SELECT id, channel_id, title, description, tags, topic, status, error_message,
+       youtube_video_id, youtube_privacy_status, published_at,
+       script_word_count, video_length_seconds,
        created_at, updated_at
 FROM videos
 ORDER BY created_at DESC
@@ -90,8 +93,7 @@ LIMIT %(limit)s OFFSET %(offset)s;
 
 UPDATE_VIDEO: str = """
 UPDATE videos
-SET status = %(status)s,
-    updated_at = now()
+SET status = %(status)s
 WHERE id = %(video_id)s
 RETURNING *;
 """
@@ -99,20 +101,20 @@ RETURNING *;
 # --- Channel CRUD ---
 
 INSERT_CHANNEL: str = """
-INSERT INTO channels (name, youtube_channel_id, description)
-VALUES (%(name)s, %(youtube_channel_id)s, %(description)s)
+INSERT INTO channels (name, youtube_channel_id, handle, description)
+VALUES (%(name)s, %(youtube_channel_id)s, %(handle)s, %(description)s)
 RETURNING *;
 """
 
 LIST_CHANNELS: str = """
-SELECT id, name, youtube_channel_id, description, created_at, updated_at
+SELECT id, name, youtube_channel_id, handle, description, status, created_at, updated_at
 FROM channels
 ORDER BY created_at DESC
 LIMIT %(limit)s OFFSET %(offset)s;
 """
 
 GET_CHANNEL: str = """
-SELECT id, name, youtube_channel_id, description, created_at, updated_at
+SELECT id, name, youtube_channel_id, handle, description, status, created_at, updated_at
 FROM channels
 WHERE id = %(channel_id)s;
 """

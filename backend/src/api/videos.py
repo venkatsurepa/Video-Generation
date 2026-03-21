@@ -21,6 +21,8 @@ async def create_video(body: VideoCreate, db: DbDep) -> VideoResponse:
             {
                 "channel_id": body.channel_id,
                 "title": body.title,
+                "description": body.description,
+                "tags": body.tags,
                 "topic": body.topic,
             },
         )
