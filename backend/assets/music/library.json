@@ -1,0 +1,24 @@
+{
+    "tracks": [],
+    "_instructions": "Download 20-30 tracks from Epidemic Sound organized by mood. Place WAV files in subdirectories matching mood categories. Register each track here with metadata.",
+    "_example_track": {
+        "id": "es-12345",
+        "title": "Dark Corridors",
+        "artist": "Epidemic Sound Artist",
+        "source": "epidemic_sound",
+        "mood_category": "suspenseful_investigation",
+        "bpm": 90,
+        "duration_seconds": 180.0,
+        "file_path": "suspenseful_investigation/dark-corridors.wav",
+        "stems_path": "suspenseful_investigation/dark-corridors-stems/",
+        "license_info": {"license": "Epidemic Sound subscription", "plan": "Commercial"},
+        "content_id_safe": true
+    },
+    "_mood_categories": {
+        "suspenseful_investigation": "Tense, methodical, 80-100 BPM",
+        "emotional_reflective": "Sad, contemplative, 60-80 BPM",
+        "dramatic_reveal": "Building intensity, 100-120 BPM",
+        "establishing_neutral": "Clean, documentary, 70-90 BPM",
+        "eerie_dark_ambient": "Atmospheric, unsettling, 50-70 BPM"
+    }
+}

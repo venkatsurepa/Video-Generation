@@ -8,7 +8,14 @@ interface KenBurnsProps {
   children: React.ReactNode;
 }
 
-/** Applies a Ken Burns (pan/zoom) animation to its children over the given duration. */
+/**
+ * Applies a Ken Burns (pan/zoom) animation to its children over the given duration.
+ * Uses `getKenBurnsTransform` from utils for the CSS transform calculation.
+ *
+ * @param type - One of 6 motion presets (zoom_in, zoom_out, pan_left, pan_right, pan_up, pan_down)
+ * @param durationFrames - Total animation duration in frames
+ * @param children - Content to apply the Ken Burns effect to (typically an Img)
+ */
 export const KenBurns: React.FC<KenBurnsProps> = ({
   type,
   durationFrames,

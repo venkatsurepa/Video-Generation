@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import uuid
-from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import structlog
-from psycopg import AsyncConnection
 
 from src.db.queries import INSERT_COST
+
+if TYPE_CHECKING:
+    import uuid
+    from decimal import Decimal
+
+    from psycopg import AsyncConnection
 
 logger = structlog.get_logger()
 

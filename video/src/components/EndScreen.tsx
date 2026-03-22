@@ -1,6 +1,9 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 
-/** Renders an end screen with subscribe CTA and fade-in. */
+/**
+ * Renders an end screen with "Thanks for watching" and subscribe CTA.
+ * Fades in over 20 frames with semi-transparent dark background overlay.
+ */
 export const EndScreen: React.FC = () => {
   const frame = useCurrentFrame();
 

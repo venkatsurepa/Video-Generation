@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from psycopg.rows import dict_row
 
+from src.api.rate_limit import RATE_HEAVY_WRITE, limiter
 from src.db.queries import GET_PIPELINE_JOBS, GET_VIDEO_STATUS, RETRY_FAILED_JOBS
 from src.dependencies import DbDep
 from src.models.pipeline import PipelineJobResponse, PipelineStatusResponse
@@ -13,7 +14,10 @@ router = APIRouter()
 
 
 @router.post("/trigger/{video_id}", response_model=PipelineStatusResponse, status_code=202)
-async def trigger_pipeline(video_id: uuid.UUID, db: DbDep) -> PipelineStatusResponse:
+@limiter.limit(RATE_HEAVY_WRITE)
+async def trigger_pipeline(
+    request: Request, video_id: uuid.UUID, db: DbDep
+) -> PipelineStatusResponse:
     """Start the pipeline for a video.
 
     Creates the initial pipeline job(s) and returns the current pipeline status.

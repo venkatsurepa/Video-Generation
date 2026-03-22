@@ -1,0 +1,41 @@
+{
+  "hookText": "SHE STOLE $4 BILLION",
+  "scenes": [
+    {
+      "imageUrl": "https://picsum.photos/id/1074/1080/1920",
+      "startFrame": 0,
+      "durationFrames": 150,
+      "kenBurnsType": "zoom_in"
+    },
+    {
+      "imageUrl": "https://picsum.photos/id/1062/1080/1920",
+      "startFrame": 150,
+      "durationFrames": 150,
+      "kenBurnsType": "pan_right"
+    },
+    {
+      "imageUrl": "https://picsum.photos/id/1040/1080/1920",
+      "startFrame": 300,
+      "durationFrames": 150,
+      "kenBurnsType": "zoom_out"
+    }
+  ],
+  "captionWords": [
+    { "text": "She", "startFrame": 5, "endFrame": 15, "isHighlighted": false },
+    { "text": "stole", "startFrame": 15, "endFrame": 30, "isHighlighted": true },
+    { "text": "four", "startFrame": 30, "endFrame": 42, "isHighlighted": false },
+    { "text": "billion", "startFrame": 42, "endFrame": 60, "isHighlighted": true },
+    { "text": "dollars", "startFrame": 60, "endFrame": 80, "isHighlighted": false },
+    { "text": "and", "startFrame": 155, "endFrame": 165, "isHighlighted": false },
+    { "text": "nobody", "startFrame": 165, "endFrame": 185, "isHighlighted": true },
+    { "text": "noticed", "startFrame": 185, "endFrame": 210, "isHighlighted": false },
+    { "text": "until", "startFrame": 305, "endFrame": 320, "isHighlighted": false },
+    { "text": "it", "startFrame": 320, "endFrame": 330, "isHighlighted": false },
+    { "text": "was", "startFrame": 330, "endFrame": 340, "isHighlighted": false },
+    { "text": "too", "startFrame": 340, "endFrame": 355, "isHighlighted": false },
+    { "text": "late", "startFrame": 355, "endFrame": 375, "isHighlighted": true }
+  ],
+  "audioUrl": "",
+  "totalDurationFrames": 450,
+  "cliffhangerText": "What investigators found next changed everything..."
+}

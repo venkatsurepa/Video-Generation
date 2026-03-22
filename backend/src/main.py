@@ -1,16 +1,29 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from importlib.metadata import version
+from typing import TYPE_CHECKING
 
+import structlog
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from src.api.errors import APIError, api_error_handler, http_error_handler, validation_error_handler
+from src.api.middleware import RequestIDMiddleware
+from src.api.rate_limit import limiter
 from src.api.router import api_router
 from src.config import get_settings
 from src.db.connection import create_pool
+from src.pipeline.worker import create_worker
 from src.utils.logging import setup_logging
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @asynccontextmanager
@@ -20,9 +33,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[dict[str, object]]:
     setup_logging(settings.log_level, settings.is_production)
 
     pool = await create_pool(settings.database.db_url)
+
+    # Start the pipeline worker as a background task
+    worker = create_worker(settings, pool)
+    worker_task = asyncio.create_task(worker.start())
+
+    # Expose worker on app.state so health check can inspect it
+    app.state.worker = worker
+
     try:
-        yield {"db_pool": pool}
+        yield {"db_pool": pool, "worker": worker}
     finally:
+        log = structlog.get_logger()
+        await worker.stop()
+        try:
+            await asyncio.wait_for(worker_task, timeout=30.0)
+            await log.ainfo("worker_drained_gracefully")
+        except TimeoutError:
+            await log.awarning("worker_drain_timeout_forcing_cancel")
+            worker_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker_task
         await pool.close()
 
 
@@ -31,25 +62,37 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="CrimeMill API",
+        description="Automated true-crime documentary pipeline — topic discovery, "
+        "script generation, media assembly, YouTube publishing, and analytics.",
         version=_get_version(),
         lifespan=lifespan,
         docs_url="/docs" if not settings.is_production else None,
         redoc_url=None,
     )
 
-    if settings.is_production:
-        origins: list[str] = []
-    else:
-        origins = ["*"]
+    # --- Error handlers (structured JSON envelope) ---
+    app.add_exception_handler(APIError, api_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(StarletteHTTPException, http_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
 
+    # --- Rate limiting ---
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+    # --- Middleware (order matters: first added = outermost) ---
+    # CORS must be outermost so preflight requests get correct headers
+    cors_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Request ID is inner — runs after CORS
+    app.add_middleware(RequestIDMiddleware)
 
+    # --- Routes ---
     app.include_router(api_router)
 
     return app

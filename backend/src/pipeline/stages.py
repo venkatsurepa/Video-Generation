@@ -2,7 +2,9 @@
 
 Voiceover, images, music, and thumbnails all run in parallel after script
 generation completes. Audio processing waits for voice + music. Video assembly
-waits for audio + images + captions. YouTube upload waits for video + thumbnail.
+waits for audio + images + captions. Content classification runs after script
+generation and thumbnail generation; YouTube upload waits for video + thumbnail
++ content classification (self-cert answers feed into upload metadata).
 """
 
 from __future__ import annotations
@@ -10,11 +12,12 @@ from __future__ import annotations
 from typing import TypedDict
 
 
-class StageConfig(TypedDict):
+class StageConfig(TypedDict, total=False):
     depends_on: list[str]
     service: str
     timeout_seconds: int
     max_retries: int
+    optional: bool  # Optional stages don't block the pipeline on failure
 
 
 PIPELINE_STAGES: dict[str, StageConfig] = {
@@ -72,10 +75,58 @@ PIPELINE_STAGES: dict[str, StageConfig] = {
         "timeout_seconds": 120,
         "max_retries": 2,
     },
+    "content_classification": {
+        "depends_on": ["script_generation", "thumbnail_generation"],
+        "service": "content_classifier",
+        "timeout_seconds": 60,
+        "max_retries": 2,
+    },
     "youtube_upload": {
-        "depends_on": ["video_assembly", "thumbnail_generation"],
+        "depends_on": ["video_assembly", "content_classification"],
         "service": "youtube_uploader",
         "timeout_seconds": 600,
         "max_retries": 3,
+    },
+    "podcast_publish": {
+        "depends_on": ["youtube_upload"],
+        "service": "podcast_publisher",
+        "timeout_seconds": 300,
+        "max_retries": 2,
+        "optional": True,
+    },
+    "shorts_generation": {
+        "depends_on": ["youtube_upload"],
+        "service": "shorts_generator",
+        "timeout_seconds": 600,
+        "max_retries": 2,
+        "optional": True,
+    },
+    "localization": {
+        "depends_on": ["youtube_upload"],
+        "service": "localizer",
+        "timeout_seconds": 900,
+        "max_retries": 2,
+        "optional": True,
+    },
+    "cross_platform_distribution": {
+        "depends_on": ["shorts_generation"],
+        "service": "cross_platform_distributor",
+        "timeout_seconds": 120,
+        "max_retries": 2,
+        "optional": True,
+    },
+    "community_post": {
+        "depends_on": ["youtube_upload"],
+        "service": "cross_platform_distributor",
+        "timeout_seconds": 30,
+        "max_retries": 1,
+        "optional": True,
+    },
+    "discord_notification": {
+        "depends_on": ["youtube_upload"],
+        "service": "community_manager",
+        "timeout_seconds": 30,
+        "max_retries": 1,
+        "optional": True,
     },
 }

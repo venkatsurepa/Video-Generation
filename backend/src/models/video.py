@@ -43,6 +43,28 @@ class VideoUpdate(BaseModel):
 
 
 class VideoResponse(VideoBase):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "title": "The Wirecard Scandal: Europe's Enron",
+                "description": "How a $30 billion fintech darling turned out to be a house of cards.",
+                "tags": ["corporate_fraud", "wirecard", "germany"],
+                "topic": {},
+                "channel_id": "11111111-2222-3333-4444-555555555555",
+                "status": "published",
+                "error_message": None,
+                "youtube_video_id": "dQw4w9WgXcQ",
+                "youtube_privacy_status": "public",
+                "published_at": "2026-03-15T14:30:00Z",
+                "script_word_count": 3200,
+                "video_length_seconds": 1080,
+                "created_at": "2026-03-10T09:00:00Z",
+                "updated_at": "2026-03-15T14:30:00Z",
+            }
+        }
+    )
+
     id: uuid.UUID
     status: VideoStatus
     error_message: str | None = None

@@ -5,7 +5,13 @@ interface TitleCardProps {
   durationFrames: number;
 }
 
-/** Renders a cinematic title card with fade-in animation. */
+/**
+ * Renders a cinematic opening title card with fade in/out and subtle zoom.
+ * White uppercase text on black background, Inter font weight 800.
+ *
+ * @param title - The video title to display
+ * @param durationFrames - How long the title card is visible, in frames
+ */
 export const TitleCard: React.FC<TitleCardProps> = ({
   title,
   durationFrames,

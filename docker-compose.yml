@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - R2_ENDPOINT_URL=http://minio:9000
+      - R2_ACCESS_KEY_ID=minioadmin
+      - R2_SECRET_ACCESS_KEY=minioadmin
+      - R2_ACCOUNT_ID=local
+    volumes:
+      # Mount source for hot reload (dev only)
+      - ./backend/src:/app/backend/src:ro
+      - ./video/src:/app/video/src:ro
+    command: >
+      sh -c "cd /app/backend &&
+             uvicorn src.main:app --host 0.0.0.0 --port 8000
+             --reload --reload-dir /app/backend/src"
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb local/crimemill-thumbnails --ignore-existing;
+      mc mb local/crimemill-images --ignore-existing;
+      mc mb local/crimemill-audio --ignore-existing;
+      mc mb local/crimemill-videos --ignore-existing;
+      mc anonymous set download local/crimemill-thumbnails;
+      echo 'MinIO buckets created successfully';
+      "
+
+volumes:
+  minio_data:

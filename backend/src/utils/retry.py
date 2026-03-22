@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import random
-from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import ParamSpec, TypeVar
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
 
 import httpx
 import structlog
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
 
 logger = structlog.get_logger()
 

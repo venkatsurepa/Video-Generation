@@ -1,0 +1,17 @@
+{hook_line}
+
+{sources_teaser}
+
+{case_summary}
+
+{chapters}
+
+{sources}
+
+{affiliate_block}
+
+{channel_links}
+
+{legal_disclaimer}
+
+{hashtags}

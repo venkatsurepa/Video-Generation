@@ -5,6 +5,11 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -16,6 +21,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules"]
 }

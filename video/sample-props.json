@@ -1,0 +1,48 @@
+{
+  "title": "Test Render — CrimeMill",
+  "totalDurationFrames": 300,
+  "audioUrl": "",
+  "musicUrl": "",
+  "scenes": [
+    {
+      "imageUrl": "https://picsum.photos/id/1025/2560/1440",
+      "startFrame": 0,
+      "durationFrames": 100,
+      "kenBurnsType": "zoom_in",
+      "narrationText": "It began on a quiet night in the suburbs."
+    },
+    {
+      "imageUrl": "https://picsum.photos/id/1062/2560/1440",
+      "startFrame": 100,
+      "durationFrames": 100,
+      "kenBurnsType": "pan_right",
+      "narrationText": "No one could have predicted what would happen next."
+    },
+    {
+      "imageUrl": "https://picsum.photos/id/1040/2560/1440",
+      "startFrame": 200,
+      "durationFrames": 100,
+      "kenBurnsType": "zoom_out",
+      "narrationText": "The investigation would change everything."
+    }
+  ],
+  "captionWords": [
+    { "text": "It", "startFrame": 5, "endFrame": 12, "isHighlighted": false },
+    { "text": "began", "startFrame": 12, "endFrame": 22, "isHighlighted": false },
+    { "text": "on", "startFrame": 22, "endFrame": 28, "isHighlighted": false },
+    { "text": "a", "startFrame": 28, "endFrame": 32, "isHighlighted": false },
+    { "text": "quiet", "startFrame": 32, "endFrame": 45, "isHighlighted": true },
+    { "text": "night", "startFrame": 45, "endFrame": 58, "isHighlighted": false },
+    { "text": "No", "startFrame": 105, "endFrame": 112, "isHighlighted": false },
+    { "text": "one", "startFrame": 112, "endFrame": 120, "isHighlighted": false },
+    { "text": "could", "startFrame": 120, "endFrame": 130, "isHighlighted": false },
+    { "text": "have", "startFrame": 130, "endFrame": 138, "isHighlighted": false },
+    { "text": "predicted", "startFrame": 138, "endFrame": 155, "isHighlighted": true },
+    { "text": "this", "startFrame": 155, "endFrame": 165, "isHighlighted": false },
+    { "text": "The", "startFrame": 205, "endFrame": 212, "isHighlighted": false },
+    { "text": "investigation", "startFrame": 212, "endFrame": 240, "isHighlighted": true },
+    { "text": "would", "startFrame": 240, "endFrame": 250, "isHighlighted": false },
+    { "text": "change", "startFrame": 250, "endFrame": 265, "isHighlighted": false },
+    { "text": "everything", "startFrame": 265, "endFrame": 285, "isHighlighted": true }
+  ]
+}

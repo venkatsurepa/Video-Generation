@@ -1,4 +1,5 @@
 # Python
+.venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -13,9 +14,12 @@ dist/
 coverage/
 htmlcov/
 *.cover
+coverage.xml
+.coverage
 
 # Node.js
 node_modules/
+dist/
 .remotion/
 
 # Environment
@@ -23,6 +27,7 @@ node_modules/
 .env.local
 .env.production
 .env.test
+!.env.example
 
 # Media files — never committed
 *.wav
@@ -31,10 +36,14 @@ node_modules/
 *.mkv
 *.avi
 *.mov
+*.webm
+*.flac
+*.ogg
 
 # Temp and output
 /tmp/
 /output/
+*.tmp
 
 # OS
 .DS_Store
@@ -45,3 +54,11 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Fonts (downloaded separately)
+backend/assets/fonts/*.ttf
+backend/assets/fonts/*.otf
+
+# Music library (downloaded separately)
+backend/assets/music/**/*.wav
+backend/assets/music/**/*.mp3

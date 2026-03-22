@@ -6,7 +6,14 @@ interface TransitionProps {
   children: React.ReactNode;
 }
 
-/** Applies an entrance transition effect to its children. */
+/**
+ * Applies an entrance transition effect to its children.
+ * Used for crossfade transitions between scenes (0.5s fade-in).
+ *
+ * @param type - Transition style: "fade" (opacity 0→1) or "wipe_left" (slide in)
+ * @param durationFrames - How many frames the transition takes to complete
+ * @param children - Content to animate in
+ */
 export const Transition: React.FC<TransitionProps> = ({
   type,
   durationFrames,
