@@ -59,8 +59,10 @@ ENV PYTHONPATH=/app/backend
 ENV NODE_PATH=/app/video/node_modules
 ENV TMPDIR=/tmp/crimemill
 
-# Railway injects PORT at runtime (typically 8080). Default 8000 for local.
-ENV PORT=8000
+# Railway injects PORT=8080 at runtime. Default to 8080 so the EXPOSE
+# directive below resolves to 8080 at build time, matching the runtime PORT
+# and making Railway's image-manifest port detection align with uvicorn.
+ENV PORT=8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
