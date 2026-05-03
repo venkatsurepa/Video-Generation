@@ -24,9 +24,7 @@ dist/
 
 # Environment
 .env
-.env.local
-.env.production
-.env.test
+.env.*
 !.env.example
 
 # Media files — never committed
