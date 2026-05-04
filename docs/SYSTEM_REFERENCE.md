@@ -196,7 +196,81 @@ Seven destination reports are saved as fixtures, ready to convert to videos when
 
 ---
 
-## 8. Content Backlog
+## 8. Automated Topic Discovery
+
+**Status:** ✅ Built and deployed (commits `c265623`, `ff5c090`).
+
+A standalone discovery service polls 7 sources for video-worthy topics, deduplicates against the existing backlog (Jaccard word-overlap + Postgres `pg_trgm` index), optionally scores via Claude Haiku, and writes survivors to `discovered_topics`.
+
+**Sources:**
+
+| Source | Cost | API key | Status (latest run, 2026-05-04) |
+|---|---|---|---|
+| `reddit` | free | none | ✅ found 91 / saved 91 |
+| `advisory` (US State Dept + CDC + UK FCDO) | free | none | ✅ found 51 / saved 6 (CDC + UK feeds upstream-broken; State Dept worked) |
+| `wikipedia` | free | none (UA header required) | ✅ found 77 / saved 77 |
+| `gdelt` | free | none | ✅ found 21 / saved 20 |
+| `google_trends` | free | none (`pytrends`) | ⚠️ Not yet exercised |
+| `competitor` (YouTube channel monitoring) | free quota | `YOUTUBE_API_KEY` | ⚠️ Skips silently when key absent |
+| `court_listener` (legal cases) | free tier | `COURTLISTENER_API_TOKEN` | ⚠️ Skips silently when token absent |
+
+**Scorer:** `TopicScorer` invokes Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) to assign a composite score from 5 weighted dimensions: virality (30%), narrative_strength (25%), data_availability (20%), competition_gap (15%), timeliness (10%). ~$0.01 per candidate. Currently blocked on Anthropic credit balance — sources still produce candidates with raw heuristic scores when scoring is skipped.
+
+**Deduplication:**
+- Within a batch: Jaccard word-overlap > 0.6 → merge
+- Against backlog: case-insensitive exact title + Jaccard against `used_in_video_id IS NULL` rows
+- Hard floor: Postgres trigram index (`gin_trgm_ops`) on `title` for fast `ILIKE %...%` lookup at insert time
+
+**Orchestrator:** `DiscoveryOrchestrator.run_all()` runs sources in series, dedupes, optionally scores, then routes survivors to each source's `save_candidates()` (which uses `INSERT ... ON CONFLICT DO NOTHING`-style logic). `run_source(name)` runs one source.
+
+**CLI:**
+```bash
+python -m src.cli discover list-sources               # show registered sources
+python -m src.cli discover run-source reddit -v       # run one source verbosely
+python -m src.cli discover run-all --score            # all sources + Claude scoring
+python -m src.cli discover show-backlog --limit 30    # top unassigned topics by score
+```
+
+**HTTP API** (mounted at `/api/discovery`):
+- `POST /api/discovery/run` — run every source, return summary JSON
+- `POST /api/discovery/run/{source_name}` — run a single source
+- `GET  /api/discovery/backlog?limit=20` — top unassigned topics
+
+**Periodic cron:** `_discovery_cron()` in `main.py` runs `run_all(score=False)` every 6 hours when `ENABLE_DISCOVERY_CRON=true`. **Off by default** — set the env var on Railway when you want continuous discovery without manual triggers.
+
+**Competitor seed list (22 channels):**
+| Category | Count |
+|---|---|
+| `true_crime` | 9 |
+| `travel_safety` | 4 |
+| `financial_crime` | 3 |
+| `business_documentary` | 2 |
+| `travel_documentary` | 2 |
+| `finance_education` | 1 |
+| `travel` | 1 |
+
+The competitor scanner skips itself when `YOUTUBE_API_KEY` is missing — adding the key activates it without code changes.
+
+**Latest run (2026-05-04) — top 10 candidates from new discovery sources:**
+
+| Score | Source | Category | Title |
+|---:|---|---|---|
+| 98.0 | state_dept | destination_safety | Do NOT Travel to Chad Right Now — Here's Why |
+| 86.0 | state_dept | destination_safety | Is Jordan Safe? The Advisory Just Changed |
+| 86.0 | state_dept | destination_safety | Is Trinidad and Tobago Safe? The Advisory Just Changed |
+| 86.0 | state_dept | destination_safety | Is United Arab Emirates Safe? The Advisory Just Changed |
+| 86.0 | state_dept | destination_safety | Is DRC Safe? The Advisory Just Changed |
+| 86.0 | state_dept | destination_safety | Is Papua New Guinea Safe? The Advisory Just Changed |
+| 81.7 | reddit | destination_safety | Unpopular opinion: I loved Brussels! |
+| 67.5 | reddit | murder | Collin Griffith shot his father (Feb 14 2023) |
+| 62.8 | reddit | murder | Kenneth McDuff: obscure but evil serial killer |
+| 62.1 | reddit | cold_case | Missing 16-year-old found dismembered (dating-app meeting) |
+
+Total backlog after the run: **224 unassigned topics** (was 30 before).
+
+---
+
+## 9. Content Backlog
 
 30 topics seeded in `discovered_topics` table (15 per channel), prioritized by composite score:
 
@@ -216,7 +290,7 @@ Seven destination reports are saved as fixtures, ready to convert to videos when
 
 ---
 
-## 9. Database Schema
+## 10. Database Schema
 
 **Supabase project:** `qflkctgemkwochgkzqzj` (PostgreSQL 17, us-east-1)
 
@@ -254,6 +328,16 @@ Seven destination reports are saved as fixtures, ready to convert to videos when
 - `video_destinations` — Per-video destination tagging with country codes and SafePath tags
 - `partner_app_metrics` — Rhyo/SafePath attribution tracking (not actively used yet)
 
+**Discovery tables:**
+- `competitor_channels` — 22 seeded YouTube channels (9 true_crime, 4 travel_safety, 3 financial_crime, 2 business_documentary, 2 travel_documentary, 1 finance_education, 1 travel) consumed by the competitor scanner
+- `competitor_videos` — Per-video tracking from competitor channels (view counts, dates, signals)
+
+**Discovery indexes on `discovered_topics`** (4 added for the discovery service):
+- `idx_discovered_topics_source` on `(source_signals->>'source')` — fast per-source filtering
+- `idx_discovered_topics_channel` on `(source_signals->>'channel')` — per-channel queries
+- `idx_discovered_topics_unused_score` partial index `(composite_score DESC) WHERE used_in_video_id IS NULL` — backlog top-N
+- `idx_discovered_topics_title_trgm` GIN trigram on `title` (`gin_trgm_ops`) — fuzzy duplicate matching at insert time
+
 **Monitoring tables:**
 - `health_check_log` — Service health history with latency tracking
 - `case_files` — Research source material for crime investigations
@@ -289,7 +373,7 @@ Seven destination reports are saved as fixtures, ready to convert to videos when
 
 ---
 
-## 10. Codebase Structure
+## 11. Codebase Structure
 
 ```
 C:\Users\Varun\crimemill\
@@ -349,7 +433,7 @@ C:\Users\Varun\crimemill\
 
 ---
 
-## 11. Environment Variables
+## 12. Environment Variables
 
 All secrets stored in `backend/.env` locally and Railway service variables in production. The config uses Pydantic Settings with per-class `env_prefix` for nested grouping.
 
@@ -371,7 +455,7 @@ All secrets stored in `backend/.env` locally and Railway service variables in pr
 
 ---
 
-## 12. Deployment
+## 13. Deployment
 
 **Railway backend:**
 - URL: `https://travel-street-level-production.up.railway.app`
@@ -401,14 +485,15 @@ All secrets stored in `backend/.env` locally and Railway service variables in pr
 
 ---
 
-## 13. Current System Status
+## 14. Current System Status
 
 **Production readiness (8/8 checks pass):**
 
 | Check | Status |
 |---|---|
 | Channels configured | ✅ 2 active channels |
-| Topics backlog | ✅ 30 unused topics |
+| Topics backlog | ✅ 224 unused topics (after first automated discovery run on 2026-05-04; was 30 manual) |
+| Discovery sources | ✅ 7 registered, 4 free sources verified (reddit, advisory, wikipedia, gdelt) |
 | API providers seeded | ✅ 5 active providers |
 | Brand settings | ✅ 2 brand configs |
 | Voice settings | ✅ 2 voice configs |
@@ -425,14 +510,15 @@ All secrets stored in `backend/.env` locally and Railway service variables in pr
 | Cloudflare R2 | ✅ Read/Write verified | Write + delete round-trip tested |
 | Fish Audio TTS | ✅ Working | $0.008/voiceover verified |
 | Groq Whisper | ✅ Working | Free tier, 21-word transcription in 1.2s |
-| Anthropic | ❌ Credits exhausted | Needs $5+ top-up at console.anthropic.com |
+| Anthropic | ❌ Credits exhausted | Needs $5+ top-up at console.anthropic.com (also blocks discovery scorer) |
+| Discovery service | ✅ Live | 7 sources registered, 4 free (reddit / advisory / wikipedia / gdelt) verified producing candidates; cron off by default behind `ENABLE_DISCOVERY_CRON` |
 | fal.ai | ❌ Credits exhausted | Needs $5+ top-up at fal.ai/dashboard/billing |
 | Remotion Lambda | ⚠️ Needs real props | Function deployed, empty-props render times out at 300s |
 | YouTube Upload | ❌ Blocked on partner | Needs YOUTUBE_CLIENT_ID + YOUTUBE_CLIENT_SECRET from partner |
 
 ---
 
-## 14. Known Issues and Workarounds
+## 15. Known Issues and Workarounds
 
 | Issue | Severity | Workaround |
 |---|---|---|
@@ -447,7 +533,7 @@ All secrets stored in `backend/.env` locally and Railway service variables in pr
 
 ---
 
-## 15. Open Items / TODO
+## 16. Open Items / TODO
 
 **Immediate (blocked on money — $10 total):**
 - [ ] Top up Anthropic credits ($5)
@@ -479,6 +565,19 @@ All secrets stored in `backend/.env` locally and Railway service variables in pr
 - [ ] Design channel art + profile pictures for both channels
 - [ ] Plan whirlpool launch strategy (3 simultaneous videos per channel with circular end-screen links)
 
+**Discovery (built — running):**
+- [x] Reddit scraper — built, verified 91 candidates / first run
+- [x] Advisory poller (US State Dept + CDC + UK FCDO) — built; State Dept produces clean candidates, CDC + UK FCDO feeds upstream-broken (their XML, not ours)
+- [x] GDELT integration — built, verified 20 candidates / first run
+- [x] Wikipedia monitor — built, verified 77 candidates / first run (User-Agent fix in commit `ff5c090`)
+- [x] Google Trends scanner — built (`pytrends`), not yet exercised
+- [x] Competitor scanner — built; activates when `YOUTUBE_API_KEY` is set
+- [x] CourtListener integration — built; activates when `COURTLISTENER_API_TOKEN` is set
+- [x] Claude Haiku virality scorer — built; blocked on Anthropic credits, sources still produce raw heuristic scores
+- [x] Discovery CLI (run-all / run-source / list-sources / show-backlog) — built
+- [x] Discovery API (`POST /api/discovery/run`, `POST /api/discovery/run/{source}`, `GET /api/discovery/backlog`) — built
+- [x] Optional 6h cron (`ENABLE_DISCOVERY_CRON=true`) — built, default off
+
 **Future enhancements:**
 - [ ] Automate Rhyo report generation (currently manual via safepath Claude Code session)
 - [ ] Shorts generation pipeline (top-of-funnel to long-form)
@@ -491,7 +590,7 @@ All secrets stored in `backend/.env` locally and Railway service variables in pr
 
 ---
 
-## 16. Potential Applications Beyond YouTube
+## 17. Potential Applications Beyond YouTube
 
 The pipeline architecture is content-format-agnostic. The core capability (topic → research → script → media → assembly) can be repurposed for:
 
@@ -529,7 +628,7 @@ CrimeMill operates independently of this flywheel but cross-promotes to the same
 
 ---
 
-## 17. Key Technical Decisions and Rationale
+## 18. Key Technical Decisions and Rationale
 
 | Decision | Rationale |
 |---|---|
@@ -546,7 +645,7 @@ CrimeMill operates independently of this flywheel but cross-promotes to the same
 
 ---
 
-## 18. Useful Commands
+## 19. Useful Commands
 
 ```bash
 # Local development
@@ -583,4 +682,29 @@ cd C:\Users\Varun\crimemill\backend
 pytest tests/ -v -m "not integration and not requires_db"
 mypy src/ --ignore-missing-imports
 ruff check src/ tests/ scripts/
+
+# Discovery (topic backlog)
+python -m src.cli discover list-sources                  # show all 7 registered sources
+python -m src.cli discover run-source reddit -v          # run one source verbosely
+python -m src.cli discover run-source advisory -v        # State Dept + CDC + UK FCDO
+python -m src.cli discover run-source wikipedia -v       # categories + ITN + recent deaths
+python -m src.cli discover run-source gdelt -v           # GDELT 2.0 news monitoring
+python -m src.cli discover run-all --score               # all sources + Claude Haiku scorer
+python -m src.cli discover show-backlog --limit 30       # top unassigned topics
 ```
+
+---
+
+## 20. For Future Claude Sessions
+
+Quick orientation for whatever Claude session picks this up next:
+
+1. **Two channels share the codebase**: `CrimeMill` (financial_crime niche) and `Street Level` (travel_safety niche). Niche dispatch happens in `src/pipeline/handlers/script.py` based on `channels.niche`.
+2. **Settings is nested**, not flat. `from src.config import get_settings` → `s.anthropic.api_key`, `s.database.url`, `s.fal.api_key`, `s.fish_audio.api_key`, `s.groq.api_key`, `s.youtube.api_key`, `s.court_listener.api_token`, etc. The discovery code wraps each access in `getattr(getattr(config, "section", None), "field", None)` because the orchestrator is callable from places that may pass a non-Settings shim.
+3. **Supabase is reached two ways**: (a) the FastAPI backend uses **`psycopg` against the session pooler** (`SUPABASE_DB_URL` = `aws-1-us-east-1.pooler.supabase.com:6543`); (b) the discovery code uses the **`supabase` Python client** for its REST/PostgREST surface. Both work; don't mix patterns inside one call site.
+4. **Windows quirks**: psycopg's async API requires `WindowsSelectorEventLoopPolicy`. Subprocesses (Remotion CLI, etc.) only work on `ProactorEventLoop`. If you need both in one process, call `subprocess.run` via `asyncio.to_thread` so the SelectorEventLoop policy applies but subprocess work happens on a thread.
+5. **Anthropic credit balance is the first failure mode** for almost every model-using path (script generation, descriptions, scorer). Check `console.anthropic.com/settings/billing` before assuming a code bug.
+6. **fal.ai credits are the second failure mode** — same diagnosis pattern. Image generation 403 = top up at `fal.ai/dashboard/billing`.
+7. **The Lambda render times out at 300 s** with empty `--props={}` because the React composition expects `scenes`, `audioUrl`, `captionWords`. Pass real props (or seed defaults) when you exercise it.
+8. **Don't put real values in `.env.example`** — the file is committed; real secrets belong in `.env` (gitignored). GitHub secret-scanning will block pushes that leak `AKIA...` keys.
+9. **Discovery service is built and deployed** (commits `c265623` + `ff5c090`). 7 sources, CLI + API + optional cron. The 4 free sources (reddit, advisory, wikipedia, gdelt) work right now and produced 194 net candidates on the 2026-05-04 inaugural run. The Claude Haiku scorer is wired but blocked on credits — set `ANTHROPIC_API_KEY` + top up to enable. Optional 6 h cron via `ENABLE_DISCOVERY_CRON=true` (Railway env var).
