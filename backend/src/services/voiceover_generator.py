@@ -26,7 +26,7 @@ logger = structlog.get_logger()
 _BASE_URL = "https://api.fish.audio"
 _TTS_ENDPOINT = "/v1/tts"
 _MODEL = "speech-01-turbo"
-_SAMPLE_RATE = 48_000
+_SAMPLE_RATE = 44_100  # Fish Audio WAV supports 8000/16000/24000/32000/44100; 48000 is rejected with HTTP 400
 _FORMAT = "wav"
 _GENERATION_TIMEOUT = 120.0
 
