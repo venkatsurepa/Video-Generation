@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from src.api.analytics import router as analytics_router
 from src.api.channels import router as channels_router
 from src.api.community import router as community_router
+from src.api.discovery import router as discovery_router
 from src.api.health import router as health_router
 from src.api.pipeline import router as pipeline_router
 from src.api.research import router as research_router
@@ -25,3 +26,4 @@ api_router.include_router(schedule_router, prefix="/api/v1/schedule", tags=["sch
 api_router.include_router(series_router, prefix="/api/v1/series", tags=["series"])
 api_router.include_router(community_router, prefix="/api/v1/community", tags=["community"])
 api_router.include_router(research_router, prefix="/api/v1/research", tags=["research"])
+api_router.include_router(discovery_router, prefix="/api/discovery", tags=["discovery"])

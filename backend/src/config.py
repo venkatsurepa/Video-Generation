@@ -173,6 +173,9 @@ class YouTubeSettings(BaseSettings):
 
     client_id: str = ""
     client_secret: str = ""
+    # YouTube Data API v3 key — used by the discovery competitor scanner.
+    # Optional; competitor source skips itself when this is empty.
+    api_key: str = ""
 
 
 class DiscordSettings(BaseSettings):

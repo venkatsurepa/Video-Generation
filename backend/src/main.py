@@ -26,6 +26,44 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
+async def _discovery_cron(settings: object) -> None:
+    """Optional periodic topic discovery loop (every 6 hours).
+
+    Gated behind ``ENABLE_DISCOVERY_CRON=true`` so it never runs by default.
+    Calls ``DiscoveryOrchestrator.run_all(score=False)`` — scoring is expensive
+    and only runs on demand via CLI/API.
+    """
+    log = structlog.get_logger()
+    interval_seconds = 6 * 60 * 60  # 6 hours
+    try:
+        from supabase import create_client
+
+        from src.services.discovery import DiscoveryOrchestrator
+
+        supabase = create_client(
+            settings.database.url, settings.database.service_role_key,  # type: ignore[attr-defined]
+        )
+        orchestrator = DiscoveryOrchestrator(supabase, settings)
+    except Exception as exc:
+        await log.aerror("discovery_cron_init_failed", error=str(exc))
+        return
+
+    while True:
+        try:
+            result = await orchestrator.run_all(score=False)
+            await log.ainfo(
+                "discovery_cron_run",
+                candidates=result.get("total_candidates", 0),
+                saved=result.get("total_saved", 0),
+                errors=len(result.get("errors", [])),
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            await log.aerror("discovery_cron_failed", error=str(exc))
+        await asyncio.sleep(interval_seconds)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[dict[str, object]]:
     """Initialize and tear down application resources."""
@@ -37,6 +75,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[dict[str, object]]:
     # Start the pipeline worker as a background task
     worker = create_worker(settings, pool)
     worker_task = asyncio.create_task(worker.start())
+
+    # Optional periodic discovery loop — opt-in via ENABLE_DISCOVERY_CRON.
+    discovery_task: asyncio.Task[None] | None = None
+    import os
+
+    if os.environ.get("ENABLE_DISCOVERY_CRON", "").lower() in {"1", "true", "yes"}:
+        discovery_task = asyncio.create_task(_discovery_cron(settings))
 
     # Expose worker on app.state so health check can inspect it
     app.state.worker = worker
@@ -54,6 +99,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[dict[str, object]]:
             worker_task.cancel()
             with suppress(asyncio.CancelledError):
                 await worker_task
+        if discovery_task is not None:
+            discovery_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await discovery_task
         await pool.close()
 
 

@@ -2315,6 +2315,152 @@ def series_analytics(ctx: click.Context, series_id: str) -> None:
 
 
 # ===================================================================
+# DISCOVERY commands
+# ===================================================================
+
+
+@cli.group()
+def discover() -> None:
+    """Topic discovery — scan Reddit, GDELT, advisories, etc. for video ideas."""
+
+
+def _build_supabase_client() -> Any:
+    """Lazy supabase client — keeps the dep optional at CLI startup."""
+    from supabase import create_client
+
+    s = _get_settings()
+    return create_client(s.database.url, s.database.service_role_key)
+
+
+@discover.command("run-all")
+@click.option("--score/--no-score", default=False, help="Score candidates with Claude Haiku")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.pass_context
+def discover_run_all(ctx: click.Context, score: bool, verbose: bool) -> None:
+    """Run every discovery source, dedupe, and persist new topics."""
+    import logging as _logging
+
+    from src.services.discovery import DiscoveryOrchestrator
+
+    if verbose:
+        _logging.basicConfig(level=_logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    else:
+        _logging.basicConfig(level=_logging.INFO, format="%(message)s")
+
+    async def _run_all() -> None:
+        orch = DiscoveryOrchestrator(_build_supabase_client(), _get_settings())
+        result = await orch.run_all(score=score)
+        if ctx.obj["json"]:
+            _print_json(result)
+        else:
+            console.print(
+                f"\n[bold]Discovery complete[/]  "
+                f"found={result['total_candidates']}  saved={result['total_saved']}  "
+                f"errors={len(result['errors'])}\n"
+            )
+            for name, info in result["sources"].items():
+                color = "green" if info["status"] == "ok" else "red"
+                console.print(f"  [{color}]{info['status']:5s}[/]  {name:15s}  {info['candidates']} candidates")
+            if result.get("scoring"):
+                console.print(f"\nScoring: {result['scoring']}")
+
+    _run(_run_all())
+
+
+@discover.command("run-source")
+@click.argument("source_name")
+@click.option("--score/--no-score", default=False, help="Score candidates with Claude Haiku")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.pass_context
+def discover_run_source(ctx: click.Context, source_name: str, score: bool, verbose: bool) -> None:
+    """Run a single discovery source (e.g. reddit, gdelt, advisory)."""
+    import logging as _logging
+
+    from src.services.discovery import DiscoveryOrchestrator
+
+    if verbose:
+        _logging.basicConfig(level=_logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    else:
+        _logging.basicConfig(level=_logging.INFO, format="%(message)s")
+
+    async def _run_one() -> None:
+        orch = DiscoveryOrchestrator(_build_supabase_client(), _get_settings())
+        try:
+            result = await orch.run_source(source_name, score=score)
+        except ValueError as exc:
+            err_console.print(f"[red]{exc}[/]")
+            raise SystemExit(1) from exc
+        if ctx.obj["json"]:
+            _print_json(result)
+        else:
+            console.print(
+                f"\n[bold]{result['source']}[/]  found={result['candidates_found']}  "
+                f"saved={result['candidates_saved']}\n"
+            )
+
+    _run(_run_one())
+
+
+@discover.command("list-sources")
+@click.pass_context
+def discover_list_sources(ctx: click.Context) -> None:
+    """Show every discovery source registered in the orchestrator."""
+    from src.services.discovery.orchestrator import SOURCE_REGISTRY
+
+    sources = sorted(SOURCE_REGISTRY.keys())
+    if ctx.obj["json"]:
+        _print_json({"sources": sources})
+        return
+    table = Table(title="Discovery sources", box=box.SIMPLE)
+    table.add_column("Source", style="cyan")
+    table.add_column("Class", style="dim")
+    for name in sources:
+        cls = SOURCE_REGISTRY[name]
+        table.add_row(name, cls.__name__)
+    console.print(table)
+
+
+@discover.command("show-backlog")
+@click.option("--limit", default=20, type=int, help="Number of topics to show")
+@click.pass_context
+def discover_show_backlog(ctx: click.Context, limit: int) -> None:
+    """Show top unassigned discovered topics ordered by composite score."""
+    sb = _build_supabase_client()
+    res = (
+        sb.table("discovered_topics")
+        .select("id, title, category, composite_score, priority, source_signals, created_at")
+        .is_("used_in_video_id", "null")
+        .order("composite_score", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    rows = res.data or []
+    if ctx.obj["json"]:
+        _print_json({"count": len(rows), "topics": rows})
+        return
+    if not rows:
+        console.print("[yellow]Backlog is empty.[/]")
+        return
+    table = Table(title=f"Top {len(rows)} unassigned topics", box=box.SIMPLE)
+    table.add_column("Score", justify="right", style="bold")
+    table.add_column("Priority", style="cyan")
+    table.add_column("Category", style="dim")
+    table.add_column("Title", overflow="fold")
+    table.add_column("Source", style="dim")
+    for r in rows:
+        signals = r.get("source_signals") or {}
+        src = signals.get("source", "?") if isinstance(signals, dict) else "?"
+        table.add_row(
+            f"{r.get('composite_score', 0):.1f}",
+            str(r.get("priority") or ""),
+            str(r.get("category") or ""),
+            str(r.get("title") or "")[:80],
+            src,
+        )
+    console.print(table)
+
+
+# ===================================================================
 # Entry point
 # ===================================================================
 
