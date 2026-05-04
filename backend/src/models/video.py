@@ -31,6 +31,7 @@ class VideoBase(BaseModel):
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
     topic: dict[str, object] = Field(default_factory=dict)
+    topic_id: uuid.UUID | None = None  # FK -> discovered_topics(id), nullable for manual videos
     channel_id: uuid.UUID
     parent_video_id: uuid.UUID | None = None
     language: str = "en"

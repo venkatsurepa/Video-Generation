@@ -50,7 +50,7 @@ async def _discovery_cron(settings: object) -> None:
 
     while True:
         try:
-            result = await orchestrator.run_all(score=False)
+            result = await orchestrator.run_all(score=False, triggered_by="cron")
             await log.ainfo(
                 "discovery_cron_run",
                 candidates=result.get("total_candidates", 0),

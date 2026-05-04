@@ -1,12 +1,25 @@
-"""Caption and subtitle models."""
+"""Caption and subtitle models.
+
+Two kinds of model live here:
+
+* In-memory pipeline shapes — ``WordTimestamp``, ``GroqTranscriptResponse``,
+  ``CaptionWord``, ``CaptionResult``, ``CaptionResponse``. Used by the caption
+  generator while a video is being assembled.
+* DB-backed records — ``CaptionRecordBase`` / ``CaptionRecordCreate`` /
+  ``CaptionRecordResponse``. Mirrors the introspected ``captions`` Supabase
+  table (one persistent row per (video, format, language) tuple).
+"""
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+CaptionFormat = Literal["srt", "vtt", "json"]
 
 # ---------------------------------------------------------------------------
 # Word-level timestamp (from Groq Whisper)
@@ -77,3 +90,74 @@ class CaptionResponse(BaseModel):
     @classmethod
     def from_row(cls, row: dict[str, object]) -> CaptionResponse:
         return cls.model_validate(row)
+
+
+# ---------------------------------------------------------------------------
+# DB-backed caption record — mirrors the ``captions`` Supabase table
+# ---------------------------------------------------------------------------
+
+
+class CaptionRecordBase(BaseModel):
+    video_id: uuid.UUID
+    format: CaptionFormat = "srt"
+    language: str = "en"
+    content: str
+    word_count: int | None = Field(default=None, ge=0)
+    duration_seconds: Decimal | None = None
+    model: str | None = None
+    provider: str = "groq"
+    cost_usd: Decimal = Field(default=Decimal("0"), ge=Decimal("0"))
+    storage_bucket: str | None = None
+    storage_path: str | None = None
+
+
+class CaptionRecordCreate(CaptionRecordBase):
+    pass
+
+
+class CaptionRecordResponse(CaptionRecordBase):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "11111111-2222-3333-4444-555555555555",
+                "video_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                "format": "srt",
+                "language": "en",
+                "content": "1\n00:00:00,000 --> 00:00:02,500\nWelcome back to Street Level.\n",
+                "word_count": 5,
+                "duration_seconds": "2.500",
+                "model": "whisper-large-v3-turbo",
+                "provider": "groq",
+                "cost_usd": "0.000088",
+                "storage_bucket": "crimemill-assets",
+                "storage_path": "captions/<video-uuid>.srt",
+                "created_at": "2026-05-04T18:00:00Z",
+                "updated_at": "2026-05-04T18:00:00Z",
+            }
+        }
+    )
+
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_row(cls, row: dict[str, object]) -> CaptionRecordResponse:
+        return cls.model_validate(row)
+
+
+# Bare-name alias for convention parity with the other DB-backed models.
+CaptionRecord = CaptionRecordBase
+
+__all__ = [
+    "CaptionFormat",
+    "CaptionRecord",
+    "CaptionRecordBase",
+    "CaptionRecordCreate",
+    "CaptionRecordResponse",
+    "CaptionResponse",
+    "CaptionResult",
+    "CaptionWord",
+    "GroqTranscriptResponse",
+    "WordTimestamp",
+]

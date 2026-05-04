@@ -61,14 +61,22 @@ class DiscoveryOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to initialize source '{name}': {e}")
 
-    async def run_all(self, score: bool = True) -> dict[str, Any]:
+    # Approximate scoring cost (Claude Haiku 4.5, ~prompt+response per candidate)
+    _SCORING_COST_PER_CANDIDATE = 0.01
+
+    async def run_all(
+        self, score: bool = True, triggered_by: str = "manual"
+    ) -> dict[str, Any]:
         """Run all discovery sources, optionally score results, and save."""
         start = datetime.now(UTC)
-        results = {
+        results: dict[str, Any] = {
             "started_at": start.isoformat(),
             "sources": {},
             "total_candidates": 0,
             "total_saved": 0,
+            "total_deduplicated": 0,
+            "scoring_enabled": score,
+            "scoring_cost_usd": 0.0,
             "errors": [],
         }
 
@@ -104,12 +112,17 @@ class DiscoveryOrchestrator:
                 scorer = TopicScorer(api_key)
                 all_candidates = await scorer.score_candidates(all_candidates)
                 results["scoring"] = "completed"
+                results["scoring_cost_usd"] = round(
+                    self._SCORING_COST_PER_CANDIDATE * len(all_candidates), 6
+                )
             else:
                 logger.warning("No ANTHROPIC_API_KEY — skipping scoring")
                 results["scoring"] = "skipped (no API key)"
 
         # Deduplicate against existing topics
+        pre_dedup = len(all_candidates)
         all_candidates = await self._deduplicate(all_candidates)
+        results["total_deduplicated"] = max(0, pre_dedup - len(all_candidates))
 
         # Save to discovered_topics
         saved = 0
@@ -123,17 +136,30 @@ class DiscoveryOrchestrator:
             first_source = next(iter(self.sources.values()))
             saved += await first_source.save_candidates(remaining)
 
+        completed_at = datetime.now(UTC)
+        duration = (completed_at - start).total_seconds()
         results["total_saved"] = saved
-        results["completed_at"] = datetime.now(UTC).isoformat()
-        results["duration_seconds"] = (datetime.now(UTC) - start).total_seconds()
+        results["completed_at"] = completed_at.isoformat()
+        results["duration_seconds"] = duration
 
         logger.info(
             f"Discovery complete: {results['total_candidates']} found, "
             f"{saved} saved, {len(results['errors'])} errors"
         )
+
+        await self._record_run(
+            started_at=start,
+            completed_at=completed_at,
+            duration_seconds=duration,
+            sources_run=list(self.sources.keys()),
+            results=results,
+            triggered_by=triggered_by,
+        )
         return results
 
-    async def run_source(self, source_name: str, score: bool = False) -> dict[str, Any]:
+    async def run_source(
+        self, source_name: str, score: bool = False, triggered_by: str = "manual"
+    ) -> dict[str, Any]:
         """Run a single discovery source."""
         if source_name not in self.sources:
             available = ", ".join(self.sources.keys())
@@ -141,7 +167,10 @@ class DiscoveryOrchestrator:
 
         source = self.sources[source_name]
         logger.info(f"Running single source: {source_name}")
+        start = datetime.now(UTC)
         candidates = await source.scan()
+        scored_count = 0
+        scoring_cost = 0.0
 
         if score and candidates:
             anthropic_cfg = getattr(self.config, "anthropic", None) if self.config else None
@@ -149,15 +178,79 @@ class DiscoveryOrchestrator:
             if api_key:
                 scorer = TopicScorer(api_key)
                 candidates = await scorer.score_candidates(candidates)
+                scored_count = len(candidates)
+                scoring_cost = round(
+                    self._SCORING_COST_PER_CANDIDATE * scored_count, 6
+                )
 
+        pre_dedup = len(candidates)
         candidates = await self._deduplicate(candidates)
+        deduplicated = max(0, pre_dedup - len(candidates))
         saved = await source.save_candidates(candidates)
 
-        return {
+        completed_at = datetime.now(UTC)
+        duration = (completed_at - start).total_seconds()
+
+        result: dict[str, Any] = {
             "source": source_name,
             "candidates_found": len(candidates),
             "candidates_saved": saved,
+            "total_deduplicated": deduplicated,
+            "scoring_enabled": score,
+            "scoring_cost_usd": scoring_cost,
         }
+
+        await self._record_run(
+            started_at=start,
+            completed_at=completed_at,
+            duration_seconds=duration,
+            sources_run=[source_name],
+            results={
+                "sources": {
+                    source_name: {"candidates": pre_dedup, "status": "ok"},
+                },
+                "total_candidates": pre_dedup,
+                "total_saved": saved,
+                "total_deduplicated": deduplicated,
+                "scoring_enabled": score,
+                "scoring_cost_usd": scoring_cost,
+                "errors": [],
+            },
+            triggered_by=triggered_by,
+        )
+        return result
+
+    async def _record_run(
+        self,
+        *,
+        started_at: datetime,
+        completed_at: datetime,
+        duration_seconds: float,
+        sources_run: list[str],
+        results: dict[str, Any],
+        triggered_by: str,
+    ) -> None:
+        """Insert one row into ``discovery_runs``. Best-effort — never raises."""
+        if triggered_by not in ("manual", "cron", "api"):
+            triggered_by = "manual"
+        row = {
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "duration_seconds": round(duration_seconds, 3),
+            "sources_run": sources_run,
+            "total_candidates": int(results.get("total_candidates", 0)),
+            "total_saved": int(results.get("total_saved", 0)),
+            "total_deduplicated": int(results.get("total_deduplicated", 0)),
+            "scoring_enabled": bool(results.get("scoring_enabled", False)),
+            "scoring_cost_usd": float(results.get("scoring_cost_usd", 0.0) or 0.0),
+            "source_results": results.get("sources", {}),
+            "errors": list(results.get("errors", [])),
+            "triggered_by": triggered_by,
+        }
+        try:
+            self.supabase.table("discovery_runs").insert(row).execute()
+        except Exception as exc:  # pragma: no cover — audit row is non-critical
+            logger.warning(f"Failed to record discovery_runs row: {exc}")
 
     async def _deduplicate(self, candidates: list[TopicCandidate]) -> list[TopicCandidate]:
         """Remove candidates that are too similar to existing topics."""

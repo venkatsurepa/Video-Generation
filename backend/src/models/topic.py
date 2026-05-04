@@ -179,6 +179,7 @@ class TopicResponse(BaseModel):
     competitor_saturation: float | None
     priority: str | None
     used_in_video_id: uuid.UUID | None
+    channel_id: uuid.UUID | None = None
     discovered_at: datetime | None
     expires_at: datetime | None
     created_at: datetime

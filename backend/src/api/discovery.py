@@ -27,7 +27,7 @@ async def run_all(
     from src.services.discovery import DiscoveryOrchestrator
 
     orch = DiscoveryOrchestrator(_build_supabase(settings), settings)
-    return await orch.run_all(score=score)
+    return await orch.run_all(score=score, triggered_by="api")
 
 
 @router.post("/run/{source_name}")
@@ -41,7 +41,7 @@ async def run_source(
 
     orch = DiscoveryOrchestrator(_build_supabase(settings), settings)
     try:
-        return await orch.run_source(source_name, score=score)
+        return await orch.run_source(source_name, score=score, triggered_by="api")
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
