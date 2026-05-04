@@ -47,7 +47,12 @@ class WikipediaMonitor(DiscoverySource):
         """Check Wikipedia for recently updated crime articles."""
         candidates: list[TopicCandidate] = []
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        # Wikimedia's User-Agent policy returns 403 without a contact-bearing UA.
+        # See https://meta.wikimedia.org/wiki/User-Agent_policy
+        ua = "CrimeMillDiscovery/1.0 (https://github.com/venkatsurepa/Video-Generation; topic discovery)"
+        async with httpx.AsyncClient(
+            timeout=30.0, headers={"User-Agent": ua}
+        ) as client:
             # 1. Check recent changes in crime categories
             for category in CRIME_CATEGORIES:
                 try:
