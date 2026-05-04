@@ -20,6 +20,24 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+async def _fetch_channel_niche(worker: PipelineWorker, channel_id: Any) -> str:
+    """Look up channels.niche for dispatching to the right script generator.
+
+    Falls back to 'financial_crime' if the channel row is missing or the
+    column is null — keeps existing crime channels working without any
+    migration.
+    """
+    async with worker._pool.connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT niche FROM channels WHERE id = %s", (channel_id,)
+        )
+        row = await cur.fetchone()
+    if not row:
+        return "financial_crime"
+    niche = row[0] if isinstance(row, (list, tuple)) else row.get("niche")
+    return niche or "financial_crime"
+
+
 async def handle_script_generation(
     worker: PipelineWorker,
     video_id: uuid.UUID,
@@ -37,6 +55,21 @@ async def handle_script_generation(
 
     video = await worker._get_video_info(video_id)
     channel_id = video["channel_id"]
+
+    # Niche dispatch — travel_safety channels reformat Rhyo intelligence
+    # reports through a separate generator. All other niches use the existing
+    # crime-style ScriptGenerator path below.
+    niche = await _fetch_channel_niche(worker, channel_id)
+    from src.services.niche_router import is_travel_niche
+
+    if is_travel_niche(niche):
+        from src.pipeline.handlers.script_travel import (
+            handle_travel_script_generation,
+        )
+
+        return await handle_travel_script_generation(
+            worker, video_id, payload, video
+        )
 
     topic_data = video.get("topic") or {}
     topic = TopicInput(

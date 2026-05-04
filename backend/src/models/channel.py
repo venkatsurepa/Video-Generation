@@ -10,11 +10,26 @@ from pydantic import BaseModel, ConfigDict, Field
 ChannelStatus = Literal["active", "paused", "suspended", "archived"]
 
 
+ChannelNiche = Literal[
+    "financial_crime",
+    "travel_safety",
+    "true_crime",
+    "business_documentary",
+    "educational",
+    "other",
+]
+PartnerApp = Literal["safepath", "none"]
+
+
 class ChannelBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     youtube_channel_id: str = Field(default="", max_length=100)
     handle: str = Field(default="", max_length=100)
     description: str = Field(default="", max_length=2000)
+    niche: str = "financial_crime"
+    partner_app: PartnerApp | None = None
+    partner_app_url: str | None = None
+    partner_referral_code: str | None = None
 
 
 class ChannelCreate(ChannelBase):
