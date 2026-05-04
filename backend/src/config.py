@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_ENV_FILE_PATH = str((Path(__file__).resolve().parent.parent / ".env").absolute())
+
 
 class DatabaseSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SUPABASE_")
+    model_config = SettingsConfigDict(
+        env_prefix="SUPABASE_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     url: str = ""
     anon_key: str = ""
@@ -17,31 +25,56 @@ class DatabaseSettings(BaseSettings):
 
 
 class AnthropicSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ANTHROPIC_")
+    model_config = SettingsConfigDict(
+        env_prefix="ANTHROPIC_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = ""
 
 
 class FishAudioSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="FISH_AUDIO_")
+    model_config = SettingsConfigDict(
+        env_prefix="FISH_AUDIO_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = ""
 
 
 class FalSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="FAL_AI_")
+    model_config = SettingsConfigDict(
+        env_prefix="FAL_AI_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = ""
 
 
 class GroqSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="GROQ_")
+    model_config = SettingsConfigDict(
+        env_prefix="GROQ_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = ""
 
 
 class StorageSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="R2_")
+    model_config = SettingsConfigDict(
+        env_prefix="R2_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     account_id: str = ""
     access_key_id: str = ""
@@ -65,7 +98,12 @@ class RemotionSettings(BaseSettings):
     4. Set the environment variables below
     """
 
-    model_config = SettingsConfigDict(env_prefix="REMOTION_")
+    model_config = SettingsConfigDict(
+        env_prefix="REMOTION_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
@@ -86,7 +124,12 @@ class RemotionSettings(BaseSettings):
 class BudgetSettings(BaseSettings):
     """Per-video budget enforcement settings."""
 
-    model_config = SettingsConfigDict(env_prefix="BUDGET_")
+    model_config = SettingsConfigDict(
+        env_prefix="BUDGET_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     per_video_usd: float = Field(default=15.0, description="Hard cap per video in USD")
     soft_alert_pct: float = Field(
@@ -98,20 +141,35 @@ class BudgetSettings(BaseSettings):
 
 
 class BuzzsproutSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="BUZZSPROUT_")
+    model_config = SettingsConfigDict(
+        env_prefix="BUZZSPROUT_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     podcast_id: str = ""
     api_key: str = ""
 
 
 class CourtListenerSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="COURTLISTENER_")
+    model_config = SettingsConfigDict(
+        env_prefix="COURTLISTENER_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_token: str = ""
 
 
 class YouTubeSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="YOUTUBE_")
+    model_config = SettingsConfigDict(
+        env_prefix="YOUTUBE_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     client_id: str = ""
     client_secret: str = ""
@@ -120,7 +178,12 @@ class YouTubeSettings(BaseSettings):
 class DiscordSettings(BaseSettings):
     """Discord integration — webhooks for notifications, bot token for threads."""
 
-    model_config = SettingsConfigDict(env_prefix="DISCORD_")
+    model_config = SettingsConfigDict(
+        env_prefix="DISCORD_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     webhook_url: str = ""
     bot_token: str = ""
@@ -129,14 +192,24 @@ class DiscordSettings(BaseSettings):
 
 
 class PatreonSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="PATREON_")
+    model_config = SettingsConfigDict(
+        env_prefix="PATREON_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     campaign_id: str = ""
     access_token: str = ""
 
 
 class GoogleFormsSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="GOOGLE_FORMS_")
+    model_config = SettingsConfigDict(
+        env_prefix="GOOGLE_FORMS_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     sheet_id: str = ""
 
@@ -144,7 +217,12 @@ class GoogleFormsSettings(BaseSettings):
 class RepurposeSettings(BaseSettings):
     """Repurpose.io — trigger-based cross-platform distribution ($35/month)."""
 
-    model_config = SettingsConfigDict(env_prefix="REPURPOSE_IO_")
+    model_config = SettingsConfigDict(
+        env_prefix="REPURPOSE_IO_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = ""
     workflow_id: str = ""
@@ -153,7 +231,12 @@ class RepurposeSettings(BaseSettings):
 class AyrshareSettings(BaseSettings):
     """Ayrshare — unified social media API fallback ($49/month)."""
 
-    model_config = SettingsConfigDict(env_prefix="AYRSHARE_")
+    model_config = SettingsConfigDict(
+        env_prefix="AYRSHARE_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = ""
 
@@ -164,7 +247,12 @@ class NewsletterSettings(BaseSettings):
     Reads RESEND_API_KEY and NEWSLETTER_FROM_EMAIL from environment.
     """
 
-    model_config = SettingsConfigDict(env_prefix="NEWSLETTER_")
+    model_config = SettingsConfigDict(
+        env_prefix="NEWSLETTER_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     resend_api_key: str = Field(
         default="",
@@ -181,7 +269,12 @@ class SelfHostingSettings(BaseSettings):
     API-only providers.
     """
 
-    model_config = SettingsConfigDict(env_prefix="SELF_HOSTED_")
+    model_config = SettingsConfigDict(
+        env_prefix="SELF_HOSTED_",
+        env_file=_ENV_FILE_PATH,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     tts_url: str = Field(
         default="",
@@ -215,7 +308,7 @@ class SelfHostingSettings(BaseSettings):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE_PATH,
         env_file_encoding="utf-8",
         extra="ignore",
     )

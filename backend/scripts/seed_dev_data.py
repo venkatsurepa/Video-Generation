@@ -11,7 +11,7 @@ import asyncio
 import json
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import psycopg
 from psycopg.rows import dict_row
@@ -59,13 +59,13 @@ def _get_db_url() -> str:
 
 async def seed(db_url: str) -> None:
     """Insert all seed data inside a single transaction."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     counts: dict[str, int] = {}
 
-    async with await psycopg.AsyncConnection.connect(
-        db_url, row_factory=dict_row
-    ) as conn:
-        async with conn.transaction():
+    async with (
+        await psycopg.AsyncConnection.connect(db_url, row_factory=dict_row) as conn,
+        conn.transaction(),
+    ):
             # ---------------------------------------------------------------
             # 1. Channel
             # ---------------------------------------------------------------

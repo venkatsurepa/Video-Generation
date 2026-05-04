@@ -23,7 +23,7 @@ VideoStatus = Literal[
 
 class VideoBase(BaseModel):
     model_config = ConfigDict(
-        json_encoders={datetime: lambda v: v.isoformat()},
+        populate_by_name=True,
         ser_json_bytes="base64",
     )
 
@@ -32,6 +32,12 @@ class VideoBase(BaseModel):
     tags: list[str] = Field(default_factory=list)
     topic: dict[str, object] = Field(default_factory=dict)
     channel_id: uuid.UUID
+    parent_video_id: uuid.UUID | None = None
+    language: str = "en"
+    # DB column is camelCase ("containsSyntheticMedia") to match the
+    # YouTube API field; expose snake_case in Python with an alias so
+    # row dicts from psycopg map cleanly via populate_by_name=True.
+    contains_synthetic_media: bool = Field(default=True, alias="containsSyntheticMedia")
 
 
 class VideoCreate(VideoBase):

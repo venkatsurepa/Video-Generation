@@ -13,17 +13,16 @@ from __future__ import annotations
 import sys
 from collections import deque
 
+# Orchestrator constants
+from src.pipeline.orchestrator import _MEDIA_STAGES, _STAGE_TO_VIDEO_STATUS
+
 # ---------------------------------------------------------------------------
 # Import pipeline definitions
 # ---------------------------------------------------------------------------
-
 from src.pipeline.stages import PIPELINE_STAGES
 
 # Worker handlers (import the dict directly)
 from src.pipeline.worker import _STAGE_HANDLERS
-
-# Orchestrator constants
-from src.pipeline.orchestrator import _MEDIA_STAGES, _STAGE_TO_VIDEO_STATUS
 
 # ---------------------------------------------------------------------------
 # Validation helpers

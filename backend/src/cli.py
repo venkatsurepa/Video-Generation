@@ -150,7 +150,21 @@ def channel() -> None:
 @channel.command("create")
 @click.option("--name", required=True, help="Channel display name")
 @click.option("--youtube-id", default="", help="YouTube channel ID (UC...)")
-@click.option("--niche", required=True, help="Channel niche category")
+@click.option(
+    "--niche",
+    required=True,
+    type=click.Choice(
+        [
+            "financial_crime",
+            "travel_safety",
+            "true_crime",
+            "business_documentary",
+            "educational",
+            "other",
+        ]
+    ),
+    help="Channel niche category (matches DB CHECK constraint)",
+)
 @click.option("--handle", default="", help="YouTube handle (e.g. fraud-files)")
 @click.option("--description", default="", help="Channel description")
 @click.option("--voice-id", default="", help="Fish Audio voice ID")
@@ -168,6 +182,22 @@ def channel() -> None:
         ]
     ),
 )
+@click.option(
+    "--partner-app",
+    default=None,
+    type=click.Choice(["safepath", "none"]),
+    help="Partner app association (e.g. safepath for travel_safety channels)",
+)
+@click.option(
+    "--partner-app-url",
+    default=None,
+    help="Partner app website URL (e.g. https://safepath.travel)",
+)
+@click.option(
+    "--partner-referral-code",
+    default=None,
+    help="Partner referral code for attribution",
+)
 @click.pass_context
 def channel_create(
     ctx: click.Context,
@@ -178,6 +208,9 @@ def channel_create(
     description: str,
     voice_id: str,
     thumbnail_archetype: str,
+    partner_app: str | None,
+    partner_app_url: str | None,
+    partner_referral_code: str | None,
 ) -> None:
     """Create a new channel with default settings."""
     from src.models.channel import ChannelCreateInput
@@ -193,6 +226,9 @@ def channel_create(
             description=description,
             voice_id=voice_id,
             thumbnail_archetype=thumbnail_archetype,
+            partner_app=partner_app,  # type: ignore[arg-type]
+            partner_app_url=partner_app_url,
+            partner_referral_code=partner_referral_code,
         )
         ch = await mgr.create_channel(inp)
 
@@ -203,10 +239,25 @@ def channel_create(
                     "name": ch.name,
                     "handle": ch.handle,
                     "status": ch.status,
+                    "niche": niche,
+                    "partner_app": partner_app,
+                    "partner_app_url": partner_app_url,
+                    "partner_referral_code": partner_referral_code,
                     "created_at": ch.created_at.isoformat(),
                 }
             )
         else:
+            partner_lines = ""
+            if partner_app:
+                partner_lines = (
+                    f"\n  Partner: {partner_app}"
+                    + (f" ({partner_app_url})" if partner_app_url else "")
+                    + (
+                        f"\n  Referral: {partner_referral_code}"
+                        if partner_referral_code
+                        else ""
+                    )
+                )
             console.print(
                 Panel(
                     f"[bold green]Channel created successfully[/]\n\n"
@@ -214,7 +265,7 @@ def channel_create(
                     f"  Name:   {ch.name}\n"
                     f"  Handle: {ch.handle}\n"
                     f"  Niche:  {niche}\n"
-                    f"  Status: {ch.status}",
+                    f"  Status: {ch.status}{partner_lines}",
                     title="New Channel",
                     border_style="green",
                 )
@@ -2040,104 +2091,6 @@ def research_foia_update(
             console.print(f"[green]Updated[/] FOIA {str(result.id)[:8]} → status={result.status}")
 
     _run(_update())
-
-
-# ===================================================================
-# OPTIMIZE commands
-# ===================================================================
-
-
-@cli.group()
-def optimize() -> None:
-    """Performance optimization and A/B testing."""
-
-
-@optimize.command("thumbnails")
-@click.argument("video_id")
-@click.pass_context
-def optimize_thumbnails(ctx: click.Context, video_id: str) -> None:
-    """Generate A/B thumbnail variants for a video."""
-    from src.services.optimization_engine import OptimizationEngine
-
-    async def _optimize() -> None:
-        await _ensure_pool()
-        engine = OptimizationEngine(_get_settings(), _get_http(), _get_pool())
-        result = await engine.generate_thumbnail_variants(uuid.UUID(video_id))
-
-        if ctx.obj["json"]:
-            _print_json(result.model_dump() if hasattr(result, "model_dump") else result)
-        else:
-            console.print(f"\n[bold]Thumbnail Variants — {video_id[:8]}[/]\n")
-            for v in result.get("variants", []) if isinstance(result, dict) else result.variants:
-                vid = v.get("id", "") if isinstance(v, dict) else v.id
-                score = v.get("predicted_ctr", 0) if isinstance(v, dict) else v.predicted_ctr
-                console.print(f"  {str(vid)[:8]}  predicted CTR: {score:.2f}%")
-            console.print()
-
-    _run(_optimize())
-
-
-@optimize.command("titles")
-@click.argument("video_id")
-@click.pass_context
-def optimize_titles(ctx: click.Context, video_id: str) -> None:
-    """Generate A/B title variants for a video."""
-    from src.services.optimization_engine import OptimizationEngine
-
-    async def _optimize() -> None:
-        await _ensure_pool()
-        engine = OptimizationEngine(_get_settings(), _get_http(), _get_pool())
-        result = await engine.generate_title_variants(uuid.UUID(video_id))
-
-        if ctx.obj["json"]:
-            _print_json(result.model_dump() if hasattr(result, "model_dump") else result)
-        else:
-            console.print(f"\n[bold]Title Variants — {video_id[:8]}[/]\n")
-            for v in result.get("variants", []) if isinstance(result, dict) else result.variants:
-                title = v.get("title", "") if isinstance(v, dict) else v.title
-                score = v.get("predicted_ctr", 0) if isinstance(v, dict) else v.predicted_ctr
-                console.print(f"  {score:.2f}%  {title}")
-            console.print()
-
-    _run(_optimize())
-
-
-@optimize.command("report")
-@click.option("--channel", "channel_name", required=True, help="Channel handle or name")
-@click.option("--days", default=30, type=int, help="Lookback window in days")
-@click.pass_context
-def optimize_report(ctx: click.Context, channel_name: str, days: int) -> None:
-    """Show optimization report with recommendations."""
-    from src.services.channel_manager import ChannelManager
-    from src.services.optimization_engine import OptimizationEngine
-
-    async def _report() -> None:
-        await _ensure_pool()
-        mgr = ChannelManager(_get_settings(), _get_pool(), _get_http())
-        channel_id = await mgr.resolve_channel_id(channel_name)
-        if not channel_id:
-            err_console.print(f"[red]Channel '{channel_name}' not found[/]")
-            raise SystemExit(1)
-
-        engine = OptimizationEngine(_get_settings(), _get_http(), _get_pool())
-        report = await engine.generate_report(channel_id=channel_id, days=days)
-
-        if ctx.obj["json"]:
-            _print_json(report.model_dump() if hasattr(report, "model_dump") else report)
-        else:
-            console.print(f"\n[bold]Optimization Report — {channel_name} (last {days}d)[/]\n")
-            recs = (
-                report.get("recommendations", [])
-                if isinstance(report, dict)
-                else report.recommendations
-            )
-            for rec in recs:
-                cat = rec.get("category", "") if isinstance(rec, dict) else rec.category
-                msg = rec.get("message", "") if isinstance(rec, dict) else rec.message
-                console.print(f"  [{cat}] {msg}")
-            console.print()
-
-    _run(_report())
 
 
 # ===================================================================
